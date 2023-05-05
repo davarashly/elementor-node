@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  elementor-nestjs:
+    build: ./services/nestjs
+    container_name: nestjs
+    depends_on:
+      - elementor-mongodb
+
+  elementor-react:
+    build: ./services/react
+    container_name: react
+    environment:
+      - PORT=80
+
+  elementor-mongodb:
+    image: mongo:4.4
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassrootword
+    volumes:
+      - ./services/mongodb/cfg/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+      - mongo_data:/data/db
+
+  elementor-nginx:
+    image: nginx
+    container_name: nginx
+    ports:
+      - '8084:8084'
+    volumes:
+      - ./services/nginx/cfg/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - elementor-react
+      - elementor-nestjs
+      - elementor-mongodb
+
+volumes:
+  mongo_data:
