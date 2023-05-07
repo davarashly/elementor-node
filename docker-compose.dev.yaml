@@ -2,40 +2,41 @@ version: '3.8'
 
 services:
   elementor-nestjs:
+    restart: always
     build:
       context: ./services/nestjs
       dockerfile: dev.Dockerfile
-    container_name: nestjs
     depends_on:
-      - elementor-mongodb
+      - elementor-mysql
     volumes:
       - ./services/nestjs/src/src:/app/src
 
   elementor-react:
+    restart: always
     build:
       context: ./services/react
       dockerfile: dev.Dockerfile
-    container_name: react
     environment:
       - PORT=80
     volumes:
       - ./services/react/src/src:/app/src
 
-  elementor-mongodb:
-    image: mongo:4.4
-    container_name: mongodb
+  elementor-mysql:
+    image: mysql
+    restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: rootpassrootword
-    volumes:
-      - ./services/mongodb/cfg/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
-      - mongo_data:/data/db
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
     ports:
-      - '27017:27017'
+      - 3306:3306
+    volumes:
+      - db-data:/var/lib/mysql
 
   elementor-nginx:
     image: nginx
-    container_name: nginx
+    restart: always
     ports:
       - '8084:8084'
     volumes:
@@ -43,7 +44,7 @@ services:
     depends_on:
       - elementor-react
       - elementor-nestjs
-      - elementor-mongodb
+      - elementor-mysql
 
 volumes:
-  mongo_data:
+  db-data:
