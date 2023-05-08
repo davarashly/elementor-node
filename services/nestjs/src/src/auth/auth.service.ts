@@ -153,7 +153,8 @@ export class AuthService {
       const payload = { sub: user.id }
       const token = jwt.sign(payload, process.env.SECRET)
 
-      res.cookie("token", `Bearer ${token}`)
+      res.cookie("token", `Bearer ${token}`, { httpOnly: true })
+      res.cookie("username", user.username)
 
       return token
     } catch (e) {
@@ -165,6 +166,7 @@ export class AuthService {
   async logout(req: Request, res: Response) {
     try {
       res.clearCookie("token")
+      res.clearCookie("username")
 
       const token = (
         req.headers?.["Authorization"] ||
