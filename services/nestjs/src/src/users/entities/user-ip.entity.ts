@@ -5,7 +5,6 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from "typeorm"
 import { IUserIp } from "../interfaces"
 import { UserEntity } from "./user.entity"

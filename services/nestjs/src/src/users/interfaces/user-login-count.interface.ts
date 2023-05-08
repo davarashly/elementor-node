@@ -1,4 +1,4 @@
-import { UserAgentEntity, UserEntity, UserIpEntity } from "../entities"
+import { UserEntity } from "../entities"
 
 export interface IUserLoginCount {
   id: number

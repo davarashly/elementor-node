@@ -1,5 +1,8 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common"
-import { InjectRepository } from "@nestjs/typeorm"
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common"
 import { FindOptionsWhere, Repository } from "typeorm"
 import {
   UserEntity,
@@ -15,33 +18,38 @@ import { Request, Response } from "express"
 import * as bcrypt from "bcrypt"
 import * as jwt from "jsonwebtoken"
 import * as process from "process"
+import { InjectRepository } from "@nestjs/typeorm"
+import { Logger } from "../common/logger"
 
 type EntityType<T> = T extends Repository<infer E> ? E : never
 
 @Injectable()
 export class AuthService {
+  private logger: Logger
+
   constructor(
     private readonly usersService: UsersService,
-    @InjectRepository(UserEntity)
-    private userRepository: Repository<UserEntity>,
-    @InjectRepository(UserSessionEntity)
-    private userSessionRepository: Repository<UserSessionEntity>,
-    @InjectRepository(UserIpEntity)
-    private userIpRepository: Repository<UserIpEntity>,
     @InjectRepository(UserAgentEntity)
     private userAgentRepository: Repository<UserAgentEntity>,
-    @InjectRepository(UserLoginCountEntity)
-    private userLoginCountRepository: Repository<UserLoginCountEntity>,
-  ) {}
+    @InjectRepository(UserIpEntity)
+    private userIpRepository: Repository<UserIpEntity>,
+  ) {
+    this.logger = new Logger("Auth")
+  }
 
   async register(createUserDto: CreateUserDTO): Promise<void> {
-    const { username, password } = createUserDto
-    const hashedPassword = await bcrypt.hash(password, 12)
+    try {
+      const { username, password } = createUserDto
+      const hashedPassword = await bcrypt.hash(password, 12)
 
-    await this.usersService.create({
-      username,
-      password: hashedPassword,
-    })
+      await this.usersService.create({
+        username,
+        password: hashedPassword,
+      })
+    } catch (e) {
+      this.logger.error("register", `${e.name}: ${e.message}`)
+      throw new BadRequestException()
+    }
   }
 
   private async upsertEntity<
@@ -82,104 +90,116 @@ export class AuthService {
   }
 
   async login(loginUserDto: LoginUserDTO, req: Request, res: Response) {
-    const user = await this.userRepository.findOneBy({
-      username: loginUserDto.username,
-    })
+    try {
+      const user = await this.usersService.findUser({
+        where: { username: loginUserDto.username },
+      })
 
-    if (!user) {
-      throw new UnauthorizedException("Invalid username or password")
-    }
+      if (!user) {
+        throw new UnauthorizedException("Invalid username or password")
+      }
 
-    const passwordIsValid = await bcrypt.compare(
-      loginUserDto.password,
-      user.password,
-    )
+      const passwordIsValid = await bcrypt.compare(
+        loginUserDto.password,
+        user.password,
+      )
 
-    if (!passwordIsValid) {
-      throw new UnauthorizedException("Invalid username or password")
-    }
+      if (!passwordIsValid) {
+        throw new UnauthorizedException("Invalid username or password")
+      }
 
-    const [ipEntity, userAgentEntity] = await Promise.all([
-      this.upsertEntity(user, req.ip, this.userIpRepository),
-      this.upsertEntity(
-        user,
-        req.get("User-Agent") || "",
-        this.userAgentRepository,
-      ),
-    ])
+      const [ipEntity, userAgentEntity] = await Promise.all([
+        this.upsertEntity(user, req.ip, this.userIpRepository),
+        this.upsertEntity(
+          user,
+          req.get("User-Agent") || "",
+          this.userAgentRepository,
+        ),
+      ])
 
-    let session: UserSessionEntity = await this.userSessionRepository.findOne({
-      relations: ["ipAddress", "userAgent", "user"],
-      where: {
-        user: { id: user.id },
-        ipAddress: { value: req.ip },
-        userAgent: { value: req.get("User-Agent") || "" },
-      },
-    })
-
-    if (!session) {
-      session = new UserSessionEntity()
-      session.user = user
-      session.ipAddress = ipEntity
-      session.userAgent = userAgentEntity
-    } else {
-      session.updatedAt = new Date()
-    }
-
-    let userLoginCount = await this.userLoginCountRepository.findOneBy({
-      user: { id: user.id },
-    })
-
-    if (!userLoginCount) {
-      userLoginCount = new UserLoginCountEntity()
-      userLoginCount.user = user
-    } else {
-      userLoginCount.value++
-    }
-
-    await Promise.all([
-      this.userSessionRepository.save(session),
-      this.userLoginCountRepository.save(userLoginCount),
-    ])
-
-    const payload = { sub: user.id }
-    const token = jwt.sign(payload, process.env.SECRET)
-
-    res.cookie("token", `Bearer ${token}`)
-  }
-
-  async logout(req: Request, res: Response) {
-    const token = (
-      req.headers?.["Authorization"] ||
-      req.cookies?.token ||
-      ""
-    )?.replace("Bearer ", "")
-
-    const userId = jwt.decode(token)?.sub as string | null
-
-    const user = await this.userRepository.findOneBy({
-      id: +(userId || -1),
-    })
-
-    res.clearCookie("token")
-
-    if (!user) {
-      return
-    }
-
-    const session: UserSessionEntity = await this.userSessionRepository.findOne(
-      {
+      let session: UserSessionEntity = await this.usersService.findUserSession({
         relations: ["ipAddress", "userAgent", "user"],
         where: {
           user: { id: user.id },
           ipAddress: { value: req.ip },
           userAgent: { value: req.get("User-Agent") || "" },
         },
-      },
-    )
+      })
 
-    if (session) {
-      await this.userSessionRepository.remove(session)
+      if (!session) {
+        session = new UserSessionEntity()
+        session.user = user
+        session.ipAddress = ipEntity
+        session.userAgent = userAgentEntity
+      } else {
+        session.updatedAt = new Date()
+      }
+
+      let userLoginCount = await this.usersService.findUserLoginCount({
+        where: {
+          user: { id: user.id },
+        },
+      })
+
+      if (!userLoginCount) {
+        userLoginCount = new UserLoginCountEntity()
+        userLoginCount.user = user
+      } else {
+        userLoginCount.value++
+      }
+
+      await Promise.all([session.save(), userLoginCount.save()])
+
+      const payload = { sub: user.id }
+      const token = jwt.sign(payload, process.env.SECRET)
+
+      res.cookie("token", `Bearer ${token}`)
+
+      return token
+    } catch (e) {
+      this.logger.error("login", `${e.name}: ${e.message}`)
+      throw new UnauthorizedException()
+    }
+  }
+
+  async logout(req: Request, res: Response) {
+    try {
+      res.clearCookie("token")
+
+      const token = (
+        req.headers?.["Authorization"] ||
+        req.cookies?.token ||
+        ""
+      )?.replace("Bearer ", "")
+
+      const userId = jwt.decode(token)?.sub as string | null
+
+      const user = await this.usersService.findUserIp({
+        where: {
+          id: +(userId || -1),
+        },
+      })
+
+      if (!user) {
+        return
+      }
+
+      const session: UserSessionEntity =
+        await this.usersService.findUserSession({
+          relations: ["ipAddress", "userAgent", "user"],
+          where: {
+            user: { id: user.id },
+            ipAddress: { value: req.ip },
+            userAgent: { value: req.get("User-Agent") || "" },
+          },
+        })
+
+      if (session) {
+        await session.remove()
+      }
+    } catch (e) {
+      this.logger.error("logout", `${e.name}: ${e.message}`)
+      throw new BadRequestException()
     }
   }
 }

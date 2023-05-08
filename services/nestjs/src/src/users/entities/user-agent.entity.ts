@@ -5,7 +5,6 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from "typeorm"
 import { IUserAgent } from "../interfaces"
 import { UserEntity } from "./user.entity"

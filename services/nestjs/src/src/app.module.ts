@@ -5,7 +5,6 @@ import { AppService } from "./app.service"
 import { ConfigModule } from "@nestjs/config"
 import { TypeOrmModule } from "@nestjs/typeorm"
 import { UsersModule } from "./users/users.module"
-import { AuthController } from "./auth/auth.controller"
 import { AuthModule } from "./auth/auth.module"
 
 const isDev = process.env.NODE_ENV === "dev"
