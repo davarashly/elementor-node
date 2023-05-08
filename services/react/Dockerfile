@@ -7,7 +7,7 @@ RUN yarn
 
 COPY src/ ./
 
-RUN npm run build
+RUN yarn build
 
 FROM httpd:2.4
 

@@ -4,6 +4,7 @@ import { AppService } from "./app.service"
 
 describe("AppController", () => {
   let appController: AppController
+  let appService: AppService
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
@@ -12,11 +13,14 @@ describe("AppController", () => {
     }).compile()
 
     appController = app.get<AppController>(AppController)
+    appService = app.get<AppService>(AppService)
   })
 
-  describe("root", () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.healthCheck()).toBe("alive")
+  describe("healthCheck", () => {
+    it('should return "alive"', () => {
+      const result = "alive"
+      jest.spyOn(appService, "healthCheck").mockImplementation(() => result)
+      expect(appController.healthCheck()).toBe(result)
     })
   })
 })
