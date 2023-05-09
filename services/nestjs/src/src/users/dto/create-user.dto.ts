@@ -10,9 +10,16 @@ export class CreateUserDTO {
   username: string
 
   @ApiProperty({
-    example: "password123",
+    example: "Password123",
     description: "The password of the user",
   })
   @IsNotEmpty()
   password: string
+
+  @ApiProperty({
+    example: "Password123",
+    description: "The confirmation password of the user",
+  })
+  @IsNotEmpty()
+  confirmPassword: string
 }

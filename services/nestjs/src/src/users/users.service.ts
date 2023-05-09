@@ -155,7 +155,9 @@ export class UsersService {
     }
   }
 
-  async create(createUserDto: CreateUserDTO): Promise<UserEntity> {
+  async create(
+    createUserDto: Omit<CreateUserDTO, "confirmPassword">,
+  ): Promise<UserEntity> {
     try {
       return await this.userRepository.create(createUserDto).save()
     } catch (e) {

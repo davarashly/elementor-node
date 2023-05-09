@@ -1,9 +1,9 @@
 import React from "react"
 import { Navigate, Outlet } from "react-router-dom"
-import { parseCookies } from "../utils"
+import { useAuth } from "../context/AuthContext"
 
 const NotAuthorisedRoute = () => {
-  const isLoggedIn = !!parseCookies().username
+  const { isLoggedIn } = useAuth()
 
   return !isLoggedIn ? <Outlet /> : <Navigate to="/" />
 }

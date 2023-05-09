@@ -39,13 +39,21 @@ export class AuthService {
 
   async register(createUserDto: CreateUserDTO): Promise<void> {
     try {
-      const { username, password } = createUserDto
-      const hashedPassword = await bcrypt.hash(password, 12)
+      const { username, password, confirmPassword } = createUserDto
 
-      await this.usersService.create({
-        username,
-        password: hashedPassword,
-      })
+      if (
+        !(await this.usersService.findUser({ where: { username } })) &&
+        password === confirmPassword
+      ) {
+        const hashedPassword = await bcrypt.hash(password, 12)
+
+        await this.usersService.create({
+          username,
+          password: hashedPassword,
+        })
+      } else {
+        throw new Error("User exists, or passwords dont match")
+      }
     } catch (e) {
       this.logger.error("register", `${e.name}: ${e.message}`)
       throw new BadRequestException()
@@ -63,7 +71,6 @@ export class AuthService {
     })
 
     if (!entity) {
-      const offset = 10
       const tableName = repository.metadata.tableName
 
       const insertedEntity = await repository
@@ -74,7 +81,7 @@ export class AuthService {
         .createQueryBuilder()
         .delete()
         .where(
-          `id IN (SELECT id FROM (SELECT id FROM ${tableName} WHERE user = :userId ORDER BY lastUsedAt DESC LIMIT ${offset} OFFSET ${offset}) AS subquery)`,
+          `id IN (SELECT id FROM (SELECT id FROM ${tableName} WHERE user = :userId ORDER BY lastUsedAt DESC LIMIT ${process.env.MAX_RELATIONS} OFFSET ${process.env.MAX_RELATIONS}) AS subquery)`,
           { userId: user.id },
         )
         .execute()

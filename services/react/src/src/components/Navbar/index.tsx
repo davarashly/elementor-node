@@ -1,15 +1,15 @@
 import React from "react"
 import { NavLink } from "react-router-dom"
 import StyledNavbar from "./StyledNavbar"
-import { parseCookies } from "../../utils"
+import { useAuth } from "../../context/AuthContext"
 
 const Navbar = () => {
-  const isLoggedIn = !!parseCookies().username
+  const { isLoggedIn } = useAuth()
 
   return (
     <StyledNavbar className="navbar navbar-expand-md navbar-dark bg-primary">
-      <div className="container-fluid">
-        <a className="navbar-brand" href="services/react/src/src/components#" />
+      <div className="container">
+        <a className="navbar-brand" href="#" />
         <button
           className="navbar-toggler"
           type="button"
@@ -21,10 +21,7 @@ const Navbar = () => {
         >
           <span className="navbar-toggler-icon"></span>
         </button>
-        <div
-          className="collapse navbar-collapse container"
-          id="navbarSupportedContent"
-        >
+        <div className="collapse navbar-collapse" id="navbarSupportedContent">
           <ul className="navbar-nav mx-auto">
             <li className="nav-item">
               <NavLink to="/" className="nav-link">
